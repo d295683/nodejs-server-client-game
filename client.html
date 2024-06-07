@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Screen</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid #000;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <input type="text" id="username" placeholder="Username">
+        <input type="color" id="color" value="#ff0000">
+        <button onclick="signIn()">Sign In</button>
+        <div id="move-controls">
+            <input type="number" id="x" placeholder="X">
+            <input type="number" id="y" placeholder="Y">
+            <button onclick="move()">Move</button>
+        </div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script>
+        const API_URL = 'http://localhost:3001';
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let players =[];
+        let playerId = null;
+
+        async function signIn() {
+            const username = document.getElementById('username').value;
+            const color = document.getElementById('color').value;
+
+            if (!username || !color) {
+                alert('Username and color are required');
+                return;
+            }
+
+            const response = await fetch(API_URL+'/signin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, color })
+            });
+
+            const data = await response.json();
+            playerId = data.id;
+
+            document.getElementById('move-controls').style.display = 'block';
+        }
+
+        async function move() {
+            const x = parseInt(document.getElementById('x').value);
+            const y = parseInt(document.getElementById('y').value);
+
+            if (isNaN(x) || isNaN(y)) {
+                alert('Valid position values are required');
+                return;
+            }
+
+            await fetch(API_URL+'/move', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id: playerId, position: { x, y } })
+            });
+
+            updateScreen();
+        }
+
+        async function fetchPlayers() {
+            if(!playerId) {
+              return;
+            }
+            const response = await fetch(API_URL+'/screen');
+            const players = await response.json();
+           
+            return players;
+        }
+
+        function drawPlayers(players) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            players.forEach(player => {
+                ctx.fillStyle = player.color;
+                ctx.fillRect(player.position.x, player.position.y, 20, 20);
+
+                ctx.fillStyle = "#000";
+                ctx.fillText(player.username, player.position.x, player.position.y - 10);
+            });
+        }
+
+        async function updateScreen() {
+            players = await fetchPlayers();
+            drawPlayers(players);
+        }
+
+        setInterval(updateScreen, 1000);  // Update screen every second
+    </script>
+</body>
+</html>
